@@ -1,0 +1,42 @@
+[
+    {
+        "id": 1,
+        "chat_id": 137602775,
+        "type": "yearly",
+        "text": "День рождение Брата Рашида",
+        "time": "09:15",
+        "active": true,
+        "last_sent": "",
+        "date": "27.01"
+    },
+    {
+        "id": 2,
+        "chat_id": 137602775,
+        "type": "yearly",
+        "text": "День рождение Жалаладдина",
+        "time": "09:15",
+        "active": true,
+        "last_sent": "",
+        "date": "17.01"
+    },
+    {
+        "id": 3,
+        "chat_id": 137602775,
+        "type": "yearly",
+        "text": "С днём рождения меня!",
+        "time": "09:15",
+        "active": true,
+        "last_sent": "",
+        "date": "20.02"
+    },
+    {
+        "id": 4,
+        "chat_id": 137602775,
+        "type": "yearly",
+        "text": "День рождение Сайёра апикам",
+        "time": "09:15",
+        "active": true,
+        "last_sent": "",
+        "date": "24.02"
+    }
+]
