@@ -802,4 +802,8 @@ def home():
 def run_web():
     app.run(host='0.0.0.0', port=10000)
 
+# запускаем веб-сервер в отдельном потоке
 threading.Thread(target=run_web).start()
+
+# теперь запускаем бота
+bot.infinity_polling()
