@@ -778,20 +778,7 @@ def unknown(message):
 # ЗАПУСК
 # =========================
 
-if __name__ == "__main__":
-    print("Бот запущен...")
-
-    t1 = threading.Thread(target=reminder_loop)
-    t1.daemon = True
-    t1.start()
-
-    t2 = threading.Thread(target=debt_auto_control_loop)
-    t2.daemon = True
-    t2.start()
-
-    bot.infinity_polling()
 from flask import Flask
-import threading
 import os
 
 app = Flask(__name__)
@@ -804,7 +791,22 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-threading.Thread(target=run_web).start()
+def run_bot():
+    bot.infinity_polling(skip_pending=True)
+    
+if __name__ == "__main__":
+    print("Бот запущен...")
 
-# теперь запускаем бота
-bot.infinity_polling()
+    t1 = threading.Thread(target=reminder_loop)
+    t1.daemon = True
+    t1.start()
+
+    t2 = threading.Thread(target=debt_auto_control_loop)
+    t2.daemon = True
+    t2.start()
+
+    # запускаем веб
+    threading.Thread(target=run_web).start()
+
+    # запускаем бота
+    threading.Thread(target=run_bot).start()
