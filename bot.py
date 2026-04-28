@@ -792,6 +792,7 @@ if __name__ == "__main__":
     bot.infinity_polling()
 from flask import Flask
 import threading
+import os
 
 app = Flask(__name__)
 
@@ -800,9 +801,9 @@ def home():
     return "OK"
 
 def run_web():
-    app.run(host='0.0.0.0', port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
 
-# запускаем веб-сервер в отдельном потоке
 threading.Thread(target=run_web).start()
 
 # теперь запускаем бота
