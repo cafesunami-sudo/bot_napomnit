@@ -151,8 +151,7 @@ def main_menu():
 
 def debts_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("📊 Список долгов")
-    markup.row("📈 Контроль долгов")
+    markup.row("📊 Список долгов", "📈 Контроль долгов")
     markup.row("➕ Добавить должника", "💵 Добавить оплату")
     markup.row("✏️ Изменить общий долг")
     markup.row("⬅️ Назад")
