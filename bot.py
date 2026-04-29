@@ -660,9 +660,7 @@ def payment_choose_debtor(message):
             user_state[message.chat.id]["step"] = "payment_amount"
             bot.send_message(
                 message.chat.id,
-                f"Выбран должник: {d.get('name')}
-
-Сколько он оплатил? Напиши цифрами.",
+                f"Выбран должник: {d.get('name')}\\n\\nСколько он оплатил? Напиши цифрами.",
                 reply_markup=debts_menu()
             )
             return
