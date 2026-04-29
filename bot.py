@@ -631,31 +631,43 @@ def add_payment_start(message):
         bot.send_message(message.chat.id, "Пока нет должников.", reply_markup=debts_menu())
         return
 
-    text = "Выбери номер должника:\n\n"
-    for i, d in enumerate(debts, start=1):
-        text += f"{i}. {d.get('name')}\n"
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    names = [d.get("name", "Без имени") for d in debts]
 
-    user_state[message.chat.id] = {"step": "payment_choose_debtor"}
-    bot.send_message(message.chat.id, text, reply_markup=debts_menu())
+    for i in range(0, len(names), 2):
+        markup.row(*names[i:i+2])
+
+    markup.row("⬅️ Назад")
+
+    user_state[message.chat.id] = {
+        "step": "payment_choose_debtor",
+        "debts": debts
+    }
+
+    bot.send_message(message.chat.id, "Выбери должника:", reply_markup=markup)
 
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "payment_choose_debtor")
 def payment_choose_debtor(message):
     if not guard(message):
         return
-    debts = load_debts()
 
-    try:
-        index = int(message.text) - 1
-        debts[index]
-    except:
-        bot.send_message(message.chat.id, "Напиши правильный номер должника.")
-        return
+    debts = user_state.get(message.chat.id, {}).get("debts", load_debts())
 
-    user_state[message.chat.id]["debtor_index"] = index
-    user_state[message.chat.id]["step"] = "payment_amount"
+    for i, d in enumerate(debts):
+        if message.text == d.get("name", "Без имени"):
+            user_state[message.chat.id]["debtor_index"] = i
+            user_state[message.chat.id]["step"] = "payment_amount"
+            bot.send_message(
+                message.chat.id,
+                f"Выбран должник: {d.get('name')}
 
-    bot.send_message(message.chat.id, "Сколько он оплатил? Напиши цифрами.", reply_markup=debts_menu())
+Сколько он оплатил? Напиши цифрами.",
+                reply_markup=debts_menu()
+            )
+            return
+
+    bot.send_message(message.chat.id, "Выбери должника кнопкой.")
 
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "payment_amount")
