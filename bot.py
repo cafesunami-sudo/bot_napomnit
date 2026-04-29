@@ -5,10 +5,21 @@ import os
 import threading
 import time
 from datetime import datetime
+from flask import Flask, request
 
-from config import BOT_TOKEN, ADMIN_ID
+try:
+    from config import BOT_TOKEN as CONFIG_BOT_TOKEN, ADMIN_ID as CONFIG_ADMIN_ID
+except Exception:
+    CONFIG_BOT_TOKEN = ""
+    CONFIG_ADMIN_ID = 0
 
-bot = telebot.TeleBot(BOT_TOKEN)
+BOT_TOKEN = os.environ.get("BOT_TOKEN", CONFIG_BOT_TOKEN)
+ADMIN_ID = int(os.environ.get("ADMIN_ID", CONFIG_ADMIN_ID))
+
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN не указан. Добавь BOT_TOKEN в Render Environment или в config.py")
+
+bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
 
 REMINDERS_FILE = "reminders.json"
 DEBTS_FILE = "debts.json"
@@ -19,8 +30,20 @@ DEBT_WARNING_DAYS = 30
 user_state = {}
 
 
+def is_allowed_user(chat_id):
+    return int(chat_id) == int(ADMIN_ID)
+
+
 def reset_state(chat_id):
     user_state.pop(chat_id, None)
+
+
+def guard(message):
+    if not is_allowed_user(message.chat.id):
+        bot.send_message(message.chat.id, "⛔ Доступ запрещен")
+        return False
+    return True
+
 
 
 # =========================
@@ -162,6 +185,9 @@ def weekdays_menu():
 
 @bot.message_handler(commands=["start"])
 def start(message):
+    if not guard(message):
+        return
+    reset_state(message.chat.id)
     reset_state(message.chat.id)
     bot.send_message(
         message.chat.id,
@@ -176,6 +202,8 @@ def start(message):
 
 @bot.message_handler(func=lambda message: message.text == "🆔 Мой ID")
 def my_id(message):
+    if not guard(message):
+        return
     bot.send_message(message.chat.id, f"Твой Telegram ID:\n\n`{message.chat.id}`", parse_mode="Markdown")
 
 
@@ -195,6 +223,8 @@ def navigation_back_or_home(message):
 
 @bot.message_handler(func=lambda message: message.text == "🔔 Добавить напоминание")
 def add_reminder_start(message):
+    if not guard(message):
+        return
     reset_state(message.chat.id)
     user_state[message.chat.id] = {"step": "choose_reminder_type"}
     bot.send_message(message.chat.id, "Выбери тип напоминания:", reply_markup=reminder_type_menu())
@@ -207,6 +237,8 @@ def add_reminder_start(message):
     "⏰ Один раз"
 ])
 def choose_reminder_type(message):
+    if not guard(message):
+        return
     reminder_type_map = {
         "📅 Каждый день": "daily",
         "📆 Каждую неделю": "weekly",
@@ -224,6 +256,8 @@ def choose_reminder_type(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "reminder_text")
 def reminder_text(message):
+    if not guard(message):
+        return
     user_state[message.chat.id]["text"] = message.text
     user_state[message.chat.id]["step"] = "reminder_time"
 
@@ -239,6 +273,8 @@ def reminder_text(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "reminder_time")
 def reminder_time(message):
+    if not guard(message):
+        return
     time_value = normalize_time(message.text)
 
     if not time_value:
@@ -278,6 +314,8 @@ def reminder_time(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "reminder_weekday")
 def reminder_weekday(message):
+    if not guard(message):
+        return
     weekdays = {
         "Понедельник": 0,
         "Вторник": 1,
@@ -298,6 +336,8 @@ def reminder_weekday(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "reminder_yearly_date")
 def reminder_yearly_date(message):
+    if not guard(message):
+        return
     date_value = normalize_date_day_month(message.text)
 
     if not date_value:
@@ -310,6 +350,8 @@ def reminder_yearly_date(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "reminder_once_date")
 def reminder_once_date(message):
+    if not guard(message):
+        return
     date_value = normalize_date_full(message.text)
 
     if not date_value:
@@ -350,6 +392,8 @@ def save_new_reminder(chat_id):
 
 @bot.message_handler(func=lambda message: message.text == "📋 Мои напоминания")
 def show_reminders(message):
+    if not guard(message):
+        return
     reminders = load_reminders()
     my_reminders = [r for r in reminders if r.get("chat_id") == message.chat.id and r.get("active")]
 
@@ -396,6 +440,8 @@ def show_reminders(message):
 
 @bot.message_handler(func=lambda message: message.text.lower().startswith("удалить "))
 def delete_reminder(message):
+    if not guard(message):
+        return
     try:
         reminder_id = int(message.text.split()[1])
     except:
@@ -424,12 +470,16 @@ def delete_reminder(message):
 
 @bot.message_handler(func=lambda message: message.text == "💰 Долги")
 def debts_start(message):
+    if not guard(message):
+        return
     reset_state(message.chat.id)
     bot.send_message(message.chat.id, "Раздел долгов:", reply_markup=debts_menu())
 
 
 @bot.message_handler(func=lambda message: message.text == "📊 Список долгов")
 def show_debts(message):
+    if not guard(message):
+        return
     reset_state(message.chat.id)
     debts = load_debts()
 
@@ -463,6 +513,8 @@ def show_debts(message):
 
 @bot.message_handler(func=lambda message: message.text == "📈 Контроль долгов")
 def debt_control(message):
+    if not guard(message):
+        return
     reset_state(message.chat.id)
     text = get_debt_control_text()
     bot.send_message(message.chat.id, text, reply_markup=debts_menu())
@@ -529,6 +581,8 @@ def get_debt_control_text():
 
 @bot.message_handler(func=lambda message: message.text == "➕ Добавить должника")
 def add_debtor_start(message):
+    if not guard(message):
+        return
     reset_state(message.chat.id)
     user_state[message.chat.id] = {"step": "add_debtor_name"}
     bot.send_message(message.chat.id, "Напиши ФИО или имя должника:", reply_markup=debts_menu())
@@ -536,6 +590,8 @@ def add_debtor_start(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "add_debtor_name")
 def add_debtor_name(message):
+    if not guard(message):
+        return
     user_state[message.chat.id]["name"] = message.text
     user_state[message.chat.id]["step"] = "add_debtor_total"
     bot.send_message(message.chat.id, "Напиши общий долг цифрами. Например: 1500000", reply_markup=debts_menu())
@@ -543,6 +599,8 @@ def add_debtor_name(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "add_debtor_total")
 def add_debtor_total(message):
+    if not guard(message):
+        return
     try:
         total = int(message.text.replace(" ", ""))
     except:
@@ -565,6 +623,8 @@ def add_debtor_total(message):
 
 @bot.message_handler(func=lambda message: message.text == "💵 Добавить оплату")
 def add_payment_start(message):
+    if not guard(message):
+        return
     reset_state(message.chat.id)
     debts = load_debts()
 
@@ -582,6 +642,8 @@ def add_payment_start(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "payment_choose_debtor")
 def payment_choose_debtor(message):
+    if not guard(message):
+        return
     debts = load_debts()
 
     try:
@@ -599,6 +661,8 @@ def payment_choose_debtor(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "payment_amount")
 def payment_amount(message):
+    if not guard(message):
+        return
     try:
         amount = int(message.text.replace(" ", ""))
     except:
@@ -613,6 +677,8 @@ def payment_amount(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "payment_date")
 def payment_date(message):
+    if not guard(message):
+        return
     if message.text.lower() == "сегодня":
         pay_date = datetime.now().strftime("%d.%m.%Y")
     else:
@@ -638,6 +704,8 @@ def payment_date(message):
 
 @bot.message_handler(func=lambda message: message.text == "✏️ Изменить общий долг")
 def change_total_start(message):
+    if not guard(message):
+        return
     reset_state(message.chat.id)
     debts = load_debts()
 
@@ -655,6 +723,8 @@ def change_total_start(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "change_total_choose")
 def change_total_choose(message):
+    if not guard(message):
+        return
     debts = load_debts()
 
     try:
@@ -672,6 +742,8 @@ def change_total_choose(message):
 
 @bot.message_handler(func=lambda message: user_state.get(message.chat.id, {}).get("step") == "change_total_amount")
 def change_total_amount(message):
+    if not guard(message):
+        return
     try:
         total = int(message.text.replace(" ", ""))
     except:
@@ -793,42 +865,65 @@ def debt_auto_control_loop():
 
 @bot.message_handler(func=lambda message: True)
 def unknown(message):
+    if not guard(message):
+        return
     bot.send_message(message.chat.id, "Я не понял команду. Выбери кнопку из меню.", reply_markup=main_menu())
 
 
 # =========================
-# ЗАПУСК
+# ЗАПУСК ЧЕРЕЗ WEBHOOK ДЛЯ RENDER
 # =========================
-
-from flask import Flask
-import os
 
 app = Flask(__name__)
 
-@app.route('/')
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "bot_napomnit_secret")
+WEBHOOK_PATH = f"/webhook/{WEBHOOK_SECRET}"
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://bot-napomnit.onrender.com").rstrip("/") + WEBHOOK_PATH
+
+
+@app.route("/")
 def home():
     return "OK"
 
-def run_web():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
 
-def run_bot():
-    bot.infinity_polling(skip_pending=True)
-    
-if __name__ == "__main__":
-    print("Бот запущен...")
+@app.route(WEBHOOK_PATH, methods=["POST"])
+def webhook():
+    try:
+        if request.headers.get("content-type") == "application/json":
+            json_string = request.get_data().decode("utf-8")
+            update = types.Update.de_json(json_string)
+            bot.process_new_updates([update])
+            return "OK", 200
+        return "Unsupported Media Type", 415
+    except Exception as e:
+        print("WEBHOOK ERROR:", e)
+        return "OK", 200
 
-    t1 = threading.Thread(target=reminder_loop)
-    t1.daemon = True
+
+def start_background_threads():
+    t1 = threading.Thread(target=reminder_loop, daemon=True)
     t1.start()
 
-    t2 = threading.Thread(target=debt_auto_control_loop)
-    t2.daemon = True
+    t2 = threading.Thread(target=debt_auto_control_loop, daemon=True)
     t2.start()
 
-    # запускаем веб
-    threading.Thread(target=run_web).start()
 
-    # запускаем бота
-    threading.Thread(target=run_bot).start()
+def setup_webhook():
+    print("Настраиваем webhook...")
+    try:
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=WEBHOOK_URL)
+        print("WEBHOOK SET:", WEBHOOK_URL)
+    except Exception as e:
+        print("WEBHOOK SET ERROR:", e)
+
+
+if __name__ == "__main__":
+    print("Бот запускается через WEBHOOK...")
+    setup_webhook()
+    start_background_threads()
+
+    port = int(os.environ.get("PORT", 10000))
+    print("WEB SERVER STARTING ON PORT", port)
+    app.run(host="0.0.0.0", port=port)
